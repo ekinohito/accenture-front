@@ -4,7 +4,7 @@ import { Menu, ArrowLeft } from '@mui/icons-material'
 import type { NextPage } from 'next'
 import Head from 'next/head'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 const theme = createTheme({
   palette: {
@@ -25,21 +25,40 @@ const Home: NextPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [time, setTime] = useState(100)
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [numberResult, setNumberResult] = useState("")
 
-  function updateFrame() {
-    setFrameSrc(`https://loremflickr.com/600/450?random=${Math.random()}`)
-    setFrameStatus("pending")
+  async function updateNumber() {
+    const res = await fetch('http://localhost:8000/number')
+    const data = await res.json()
+    setNumberStatus("pending")
+    setNumberSrc(`http://localhost:8000/${data.url}`)
+    setNumberResult(data.code)
   }
 
-  function resetFrame() {
+  async function updateFrame() {
+    setFrameStatus("pending")
+    const res = await fetch('http://localhost:8000/frame')
+    const data = await res.json()
+    setFrameSrc(`http://localhost:8000/${data.url}`)
+  }
+
+  async function resetFrame() {
     updateFrame()
+    updateNumber()
     setTime(0)
   }
+
+  const autoplay = useRef(true)
+  useEffect(() => {
+    autoplay.current = (numberStatus !== "pending" && frameStatus !== "pending")
+  }, [numberStatus, frameStatus])
 
   useEffect(() => {
     const interval = setInterval(() => {
       setTime(time => {
+        if (!autoplay.current) return time
         if (time >= 3000) {
+          updateNumber()
           updateFrame()
           return 0
         }
@@ -94,7 +113,7 @@ const Home: NextPage = () => {
             <Stack spacing={2} marginTop={4} alignItems="center">
               <Typography variant="h3">Кадры</Typography>
               <Box position="relative">
-                <Image width={600} height={450} src={frameSrc} alt="frame" onLoad={() => setFrameStatus("ok")} onError={() => setFrameStatus("error")}/>
+                <img width={600} height={450} style={{objectFit: 'fill'}} src={frameSrc} alt="frame" onLoad={() => setFrameStatus("ok")} onError={() => setFrameStatus("error")}/>
                 <Box
                 position="absolute" 
                 top="0" 
@@ -132,7 +151,7 @@ const Home: NextPage = () => {
           <Stack spacing={2} marginTop={4} alignItems="center">
               <Typography variant="h3">Информация</Typography>
               <Box position="relative">
-                <Image width={600} height={450} src={numberSrc} alt="number" onLoad={() => setNumberStatus("ok")} onError={() => setNumberStatus("error")}/>
+                <img width={300} height={200}  style={{objectFit: 'fill'}} src={numberSrc} alt="number" onLoad={() => setNumberStatus("ok")} onError={() => setNumberStatus("error")}/>
                 <Box
                 position="absolute" 
                 top="0" 
@@ -145,9 +164,9 @@ const Home: NextPage = () => {
                 sx={{backdropFilter: "blur(4px)"}}><CircularProgress/></Box>
                 
               </Box>
-              <Typography variant="body1">Распознанный номер вагона: </Typography>
+              {numberStatus === "ok" && <><Typography variant="body1">Распознанный номер вагона: {numberResult}</Typography>
               <Typography variant="body1">Поставщик: </Typography>
-              <Typography variant="body1">Уровень доверия: </Typography>
+              <Typography variant="body1">Уровень доверия: </Typography></>}
               <Button 
                 variant="contained"
                 color="primary"
